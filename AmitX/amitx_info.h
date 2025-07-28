@@ -5,7 +5,7 @@
 #define AMITX_NAME           "AmitX OS"
 #define AMITX_VERSION        "v0.2.1"
 #define AMITX_BUILD_DATE     "2025-7-17"
-#define OWLY_VERSION         "v2.0.0"
+#define OWLY_VERSION         "v3.0.0-pre-pre"
 #define AMITX_AUTHOR         "Amity Hagedoorn"
 #define AMITX_CODENAME       "OwlRise"
 #define AMITX_LICENSE        "MIT License"
