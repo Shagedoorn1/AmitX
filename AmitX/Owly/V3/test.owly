@@ -1,0 +1,18 @@
+
+func main() {
+    if ("x") {
+        print("something")
+    } elif ("xx") {
+        print("something else")
+    } else {
+        print("last thing")
+    }
+    for ("x"; "x"; "xx") {
+        print("5")
+    }
+    while ("yy") {
+        print("x")
+    }
+    int x = 5
+    str name = "Amity"
+}
