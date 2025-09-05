@@ -7,13 +7,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define COLOR_RESET   "\033[0m"
-#define COLOR_BLUE    "\033[34m"
-#define COLOR_GREEN   "\033[32m"
-#define COLOR_CYAN    "\033[36m"
-#define COLOR_YELLOW  "\033[33m"
-#define COLOR_MAGENTA "\033[35m"
-#define COLOR_BOLD    "\033[1m"
+extern const char* name;
 
 /*
  * ASTNode Constructors
@@ -145,6 +139,22 @@ ASTNode *ast_new_for(ASTNode *init, ASTNode *condition, ASTNode *post) {
     return node;
 }
 
+ASTNode *ast_new_bin_exp(const char *op, ASTNode *left, ASTNode *right) {
+    ASTNode *node = xmalloc(sizeof(ASTNode));
+    node->type = AST_BINARY_EXPR;
+    node->binary_expr.op = strdup(op);
+    node->binary_expr.left = left;
+    node->binary_expr.right = right;
+    return node;
+}
+ASTNode *ast_new_un_exp(const char *op, ASTNode *operand) {
+    ASTNode *node = xmalloc(sizeof(ASTNode));
+    node->type = AST_UNARY_EXPR;
+    node->unary_expr.op = strdup(op);
+    node->unary_expr.operand = operand;
+    return node;
+}
+
 #define MAX_AST_DEPTH 128
 
 static void print_indent(int depth, const bool *has_more_siblings) {
@@ -170,7 +180,7 @@ void ast_print_internal(const ASTNode *node, const char *prefix, bool is_last) {
 
     switch (node->type) {
         case AST_PROGRAM:
-            printf("\x1b[30mProgram\x1b[0m\n");
+            printf("\x1b[35m[PROGRAM] %s\x1b[0m\n", name);
             for (size_t i = 0; i < node->program.count; i++) {
                 ast_print_internal(node->program.statements[i], child_prefix, i == node->program.count - 1);
             }
@@ -338,6 +348,15 @@ void ast_print_internal(const ASTNode *node, const char *prefix, bool is_last) {
                 }
             }
             break;
+        case AST_BINARY_EXPR:
+            printf("[BINOP %s]\n", node->binary_expr.op);
+            ast_print_internal(node->binary_expr.left, child_prefix, false);
+            ast_print_internal(node->binary_expr.right, child_prefix, true);
+            break;
+        case AST_UNARY_EXPR:
+            printf("[UNOP %s]\n", node->unary_expr.op);
+            ast_print_internal(node->unary_expr.operand, child_prefix, true);
+            break;
         default:
             printf("UnknownNodeType\n");
             break;
@@ -404,6 +423,35 @@ void ast_free(ASTNode *node) {
                 free(node->if_stmt.else_body);
             }
             break;
+        case AST_WHILE:
+            for (size_t i = 0; i < node->while_stmt.count; i++)
+                ast_free(node->while_stmt.body[i]);
+            free(node->while_stmt.body);
+            break;
+
+        case AST_FOR:
+            ast_free(node->for_stmt.init);
+            ast_free(node->for_stmt.condition);
+            ast_free(node->for_stmt.post);
+            for (size_t i = 0; i < node->for_stmt.count; i++)
+                ast_free(node->for_stmt.body[i]);
+            free(node->for_stmt.body);
+            break;
+
+
+        case AST_BINARY_EXPR:
+            ast_free(node->binary_expr.left);
+            ast_free(node->binary_expr.right);
+            free((char*)node->binary_expr.op);
+            break;
+        case AST_UNARY_EXPR:
+            ast_free(node->unary_expr.operand);
+            free((char*)node->unary_expr.op);
+            break;
+        case AST_IDENTIFIER:
+            free((char*)node->identifier.name);
+            break;
+        
         default:
             fprintf(stderr, "Warning: freeing unknown AST node type %d\n", node->type);
             break;

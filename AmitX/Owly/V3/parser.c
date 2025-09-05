@@ -39,9 +39,10 @@ static ASTNode *parse_function(Parser *p);
 static ASTNode *parse_print_statement(Parser *p);
 static ASTNode *parse_statement(Parser *p);
 static ASTNode *parse_if_statement(Parser *p);
-static ASTNode *parse_for_statement(Parser *p);         // <-- add this
-static ASTNode *parse_while_statement(Parser *p);       // <-- add this
-static ASTNode *parse_variable_declaration(Parser *p);  // <-- add this
+static ASTNode *parse_for_statement(Parser *p);         
+static ASTNode *parse_while_statement(Parser *p);       
+static ASTNode *parse_variable_declaration(Parser *p);
+static ASTNode *parse_expression(Parser *p);
 
 void parser_init(Parser *parser, Token *tokens, size_t count) {
     parser->tokens = tokens;
@@ -130,7 +131,6 @@ static ASTNode *parse_function(Parser *p) {
         }
         ast_add_statement(func_node, stmt);
     }
-
     return func_node;
 }
 
@@ -186,7 +186,12 @@ static ASTNode *parse_statement(Parser *p) {
             return parse_variable_declaration(p);
         //new stuf goes here
         default:
-            fprintf(stderr, "Unknown statement starting with token '%s'\n", t->lexeme);
+            // Try parsing as an expression statement
+            ASTNode *expr = parse_expression(p);
+            if (expr) {
+                return expr;
+            }
+            parser_error("Unknown statement starting with token", t);
             return NULL;
     }
 }
@@ -200,14 +205,11 @@ static ASTNode *parse_if_statement(Parser *p) {
         fprintf(stderr, "Expected '(' after 'if'\n");
         return NULL;
     }
-    // Parse condition (for now, just a string literal)
-    Token *cond_token = peek(p);
-    if (!cond_token || cond_token->type != TOKEN_STRING) {
-        fprintf(stderr, "Expected condition string in if statement\n");
+    ASTNode *cond_node = parse_expression(p);
+    if (!cond_node) {
+        parser_error("Expected condition expression in if statement", peek(p));
         return NULL;
     }
-    ASTNode *cond_node = ast_new_literal_string(strndup(cond_token->lexeme, cond_token->length));
-    consume(p);
     if (!match(p, TOKEN_SYMBOL, ")")) {
         fprintf(stderr, "Expected ')' after if condition\n");
         return NULL;
@@ -251,13 +253,11 @@ static ASTNode *parse_if_statement(Parser *p) {
             fprintf(stderr, "Expected '(' after 'elif'\n");
             return NULL;
         }
-        Token *cond_token = peek(p);
-        if (!cond_token || cond_token->type != TOKEN_STRING) {
-            fprintf(stderr, "Expected condition string in elif statement\n");
+        ASTNode *cond_node = parse_expression(p);
+        if (!cond_node) {
+            parser_error("Expected condition expression in elif statement", peek(p));
             return NULL;
         }
-        ASTNode *cond_node = ast_new_literal_string(strndup(cond_token->lexeme, cond_token->length));
-        consume(p);
         if (!match(p, TOKEN_SYMBOL, ")")) {
             fprintf(stderr, "Expected ')' after elif condition\n");
             return NULL;
@@ -346,36 +346,31 @@ static ASTNode *parse_for_statement(Parser *p) {
         parser_error("Expected ( after 'for'", peek(p));
         return NULL;
     }
+    ASTNode *init_node = parse_variable_declaration(p);
     Token *init_token = peek(p);
-    if (!init_token || init_token->type != TOKEN_STRING) {
+    if (!init_node) {
         parser_error("Expected condition string in for statement", init_token);
         return NULL;
     }
-    ASTNode *init_node = ast_new_literal_string(strndup(init_token->lexeme, init_token->length));
-    consume(p);
     if (!match(p, TOKEN_SYMBOL, ";")) {
         parser_error("Expected semicolon after initializer", peek(p));
         return NULL;
     }
-    Token *condition = peek(p);
-    if (!condition || condition->type != TOKEN_STRING) {
+    ASTNode *cond_node = parse_expression(p);
+    if (!cond_node) {
         parser_error("Expected condition after initializer", peek(p));
         return NULL;
     }
-    ASTNode *cond_node = ast_new_literal_string(strndup(condition->lexeme, condition->length));
-    consume(p);
     if (!match(p, TOKEN_SYMBOL, ";")) {
         parser_error("Expected semicolon after condition", peek(p));
         return NULL;
     }
+    ASTNode *post_node = parse_statement(p);
 
-    Token *post = peek(p);
-    if (!post || post->type != TOKEN_STRING) {
-        parser_error("Expected post after condition", condition);
+    if (!post_node) {
+        parser_error("Expected post after condition", peek(p));
         return NULL;
     }
-    ASTNode *post_node = ast_new_literal_string(strndup(post->lexeme, post->length));
-    consume(p);
      if (!match(p, TOKEN_SYMBOL, ")")) {
         parser_error("Expected ) after 'for'", peek(p));
         return 0;
@@ -419,14 +414,11 @@ static ASTNode *parse_while_statement(Parser *p) {
         parser_error("Expected '(' after 'while'", peek(p));
         return NULL;
     }
-    // Parse condition (for now, just a string literal or expression)
-    Token *cond_token = peek(p);
-    if (!cond_token || cond_token->type != TOKEN_STRING) {
-        parser_error("Expected condition string in while statement", cond_token);
+    ASTNode *cond_node = parse_expression(p);
+    if (!cond_node) {
+        parser_error("Expeced condition expression in while statement", peek(p));
         return NULL;
     }
-    ASTNode *cond_node = ast_new_literal_string(strndup(cond_token->lexeme, cond_token->length));
-    consume(p);
     if (!match(p, TOKEN_SYMBOL, ")")) {
         parser_error("Expected ')' after while condition", peek(p));
         return NULL;
@@ -517,7 +509,7 @@ static ASTNode *parse_variable_declaration(Parser *p) {
             break;
 
         case TOKEN_NUMBER:
-            if (var_type != VAR_TYPE_INT) return NULL;
+            if ((var_type != VAR_TYPE_INT) && (var_type != VAR_TYPE_DOUBLE)) return NULL;
             value_node = xmalloc(sizeof(ASTNode));
             value_node->type = AST_LITERAL_NUMBER;
             value_node->literal_number.value = strndup(value_token->lexeme, value_token->length);
@@ -538,4 +530,122 @@ static ASTNode *parse_variable_declaration(Parser *p) {
     consume(p); // Consume the value token
 
     return ast_new_var_decl(name, name_len, var_type, value_node);
+}
+
+static const TokenType operator_tokens[] = {
+    TOKEN_OPERATOR_EQ,    // ==
+    TOKEN_OPERATOR_NEQ,   // !=
+    TOKEN_OPERATOR_LT,    // <
+    TOKEN_OPERATOR_LTE,   // <=
+    TOKEN_OPERATOR_GT,    // >
+    TOKEN_OPERATOR_GTE,   // >=
+
+    TOKEN_PLUS,           // +
+    TOKEN_MINUS,          // -
+    TOKEN_MULT,           // *
+    TOKEN_POW,            // **
+    TOKEN_DIV,            // /
+    TOKEN_MOD,            // %
+
+    TOKEN_BIT_AND,        // &
+    TOKEN_BIT_OR,         // |
+    TOKEN_BIT_XOR,        // ^
+    TOKEN_BIT_NOR,        // ~(a|b) if you keep it
+    TOKEN_BIT_NOT,        // ~
+
+    TOKEN_SHIFT_LEFT,     // <<
+    TOKEN_SHIFT_RIGHT,    // >>
+
+    TOKEN_AND_ASSIGN,     // &=
+    TOKEN_OR_ASSIGN,      // |=
+    TOKEN_XOR_ASSIGN,     // ^=
+    TOKEN_SHL_ASSIGN,     // <<=
+    TOKEN_SHR_ASSIGN,     // >>=
+
+    TOKEN_LOGICAL_AND,    // &&
+    TOKEN_LOGICAL_OR,     // ||
+
+    TOKEN_INC,            // ++
+    TOKEN_DEC             // --
+};
+
+static int is_operator_token(TokenType type) {
+    size_t count = sizeof(operator_tokens) / sizeof(operator_tokens[0]);
+    for (size_t i = 0; i < count; i++) {
+        if (operator_tokens[i] == type) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static ASTNode *parse_primary(Parser *p) {
+    Token *t = peek(p);
+    if (!t) return NULL;
+
+    if (t->type == TOKEN_NUMBER) {
+        ASTNode *node = ast_new_literal_number(strndup(t->lexeme, t->length));
+        consume(p);
+        return node;
+    }
+    if (t->type == TOKEN_STRING) {
+        ASTNode *node = ast_new_literal_string(strndup(t->lexeme, t->length));
+        consume(p);
+        return node;
+    }
+    if (t->type == TOKEN_IDENTIFIER) {
+        ASTNode *node = ast_new_identifier(t->lexeme, t->length);
+        consume(p);
+        return node;
+    }
+    // Parenthesized expression
+    if (t->type == TOKEN_SYMBOL && t->length == 1 && strncmp(t->lexeme, "(", 1) == 0) {
+        consume(p);
+        ASTNode *expr = parse_expression(p);
+        if (!match(p, TOKEN_SYMBOL, ")")) {
+            parser_error("Expected ')' after expression", peek(p));
+            ast_free(expr);
+            return NULL;
+        }
+        return expr;
+    }
+    parser_error("Unexpected token in expression", t);
+    return NULL;
+}
+
+static ASTNode *parse_expression(Parser *p) {
+    // Parse left operand
+    ASTNode *left = parse_primary(p);
+    if (!left) return NULL;
+
+    // Check for binary operator
+    Token *t = peek(p);
+    while (t && is_operator_token(t->type)) {
+        // Save operator
+        char *op = strndup(t->lexeme, t->length);
+        consume(p);
+
+        // For increment/decrement, treat as unary if no right operand
+        if (t->type == TOKEN_INC || t->type == TOKEN_DEC) {
+            ASTNode *node = ast_new_un_exp(op, left);
+            free(op);
+            left = node;
+            t = peek(p);
+            continue;
+        }
+
+        // Parse right operand
+        ASTNode *right = parse_primary(p);
+        if (!right) {
+            parser_error("Expected right operand after operator", peek(p));
+            free(op);
+            ast_free(left);
+            return NULL;
+        }
+        ASTNode *node = ast_new_bin_exp(op, left, right);
+        free(op);
+        left = node;
+        t = peek(p);
+    }
+    return left;
 }

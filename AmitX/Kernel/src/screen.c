@@ -4,6 +4,7 @@
 #include "amitx_info.h"
 #include "time.h"
 #include "io.h"
+#include "mouse.h"
 #include <stdarg.h>
 
 
@@ -51,6 +52,8 @@ void next_white() {
     video_memory[cursor_row * VGA_WIDTH + cursor_col] = (0x0F << 8) | 179; // white on black
 }
 
+void reset_mouse_cursor_state();
+
 void clear() {
     for (int i = 0; i < VGA_WIDTH * VGA_HEIGHT; i++) {
         video_memory[i] = (color << 8) | ' ';
@@ -58,6 +61,7 @@ void clear() {
     cursor_row = 0;
     cursor_col = 0;
     update_hardware_cursor();
+    reset_mouse_cursor_state();
 }
 
 void putc(char c) {
@@ -209,8 +213,6 @@ void draw_box(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t fg, u
 
     uint8_t color_local = (bg << 4) | (fg & 0x0F);
 
-    // Remove this line: setcolor((color_local & 0x0F), (color_local >> 4));
-
     video_memory[y * VGA_WIDTH + x] = (color_local << 8) | 218; // ┌
     video_memory[y * VGA_WIDTH + x + width - 1] = (color_local << 8) | 191; // ┐
     video_memory[(y + height - 1) * VGA_WIDTH + x] = (color_local << 8) | 192; // └
@@ -347,4 +349,37 @@ int sputf(char* out, const char* format, ...) {
     *str = '\0';
     va_end(args);
     return str - out;
+}
+
+static uint16_t mouse_prev_char = 0;
+static int mouse_prev_x = -1;
+extern int mouse_x, mouse_y;
+extern uint8_t mouse_buttons;
+static int mouse_prev_y = -1;
+
+void draw_mouse_cursor() {
+   
+    if (mouse_prev_x >= 0 && mouse_prev_y >= 0) {
+        video_memory[mouse_prev_y * VGA_WIDTH + mouse_prev_x] = mouse_prev_char;
+    }
+
+    // Save the character currently under the mouse
+    mouse_prev_char = video_memory[mouse_y * VGA_WIDTH + mouse_x];
+
+    uint8_t fg = 15;  
+    uint8_t bg = 0; 
+    uint16_t c = 179;
+    if (mouse_buttons & 1) c = 248;
+    if (mouse_buttons & 2) c = 196;
+    video_memory[mouse_y * VGA_WIDTH + mouse_x] = (bg << 4 | fg) << 8 | c;
+
+    // Save new position
+    mouse_prev_x = mouse_x;
+    mouse_prev_y = mouse_y;
+}
+
+void reset_mouse_cursor_state() {
+    mouse_prev_x = -1;
+    mouse_prev_y = -1;
+    mouse_prev_char = (color << 8) | ' ';
 }

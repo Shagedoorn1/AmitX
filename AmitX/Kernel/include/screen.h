@@ -36,4 +36,7 @@ void draw_box(uint8_t x, uint8_t y, uint8_t width, uint8_t height, uint8_t fg, u
 void draw_title_box(uint8_t x, uint8_t y, uint8_t width, uint8_t height, const char* title, uint8_t fg, uint8_t bg);
 void draw_progress_bar(uint8_t x, uint8_t y, uint8_t width, uint8_t percent, uint8_t fg, uint8_t bg);
 void draw_list(uint8_t x, uint8_t y, uint8_t width, uint8_t height, const char* items[], uint8_t count, uint8_t selected);
+
+// Mouse
+void draw_mouse_cursor();
 #endif

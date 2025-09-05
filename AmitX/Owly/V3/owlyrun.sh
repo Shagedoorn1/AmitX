@@ -41,7 +41,7 @@ CFILE="${BASENAME}.c"
 EXE="${BASENAME}"
 
 # Step 0: Compile the Owly compiler
-gcc -o owlyc3 owlyc3.c owlylexer.c ast.c parser.c memutils.c
+gcc -o owlyc3 owlyc3.c owlylexer.c ast.c parser.c memutils.c codegen.c 
 if [ $? -ne 0 ]; then
   echo "Failed to compile owlyc.c"
   exit 1

@@ -6,6 +6,9 @@
 #include "ast.h"
 #include "parser.h"
 #include "memutils.h"
+#include "codegen.h"
+
+const char* name;
 
 static FILE *out;
 int debug = 0;
@@ -40,8 +43,9 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Usage: %s input.owly output.c -d\n", argv[0]);
         return 1;
     }
+    name = argv[1];
 
-    FILE *fin = fopen(argv[1], "rb");
+    FILE *fin = fopen(name, "rb");
     if (!fin) {
         perror("Failed to open input file");
         return 1;
@@ -78,6 +82,9 @@ int main(int argc, char *argv[]) {
     if (debug) {
         ast_print(ast);
     }
+
+    fprintf(out, "#include <stdio.h>\n");
+    codegen(ast, out, 0);
 
     ast_free(ast);
     

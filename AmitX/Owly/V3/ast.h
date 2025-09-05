@@ -15,6 +15,9 @@ typedef enum {
     AST_IF,
     AST_WHILE,
     AST_FOR,
+
+    AST_BINARY_EXPR,
+    AST_UNARY_EXPR,
 } ASTNodeType;
 
 typedef enum {
@@ -97,6 +100,18 @@ typedef struct ASTNode {
             struct ASTNode **body;
             size_t count;
         } for_stmt;
+
+        struct {
+            char *op;
+            struct ASTNode *left;
+            struct ASTNode *right;
+        } binary_expr;
+        
+        struct {
+            char *op;
+            struct ASTNode *operand;
+        } unary_expr;
+        
     };
 } ASTNode;
 
@@ -112,6 +127,9 @@ ASTNode *ast_new_if(ASTNode *condition);
 ASTNode *ast_new_while(ASTNode *condition);
 ASTNode *ast_new_for(ASTNode *init, ASTNode *condition, ASTNode *post);
 ASTNode *ast_new_identifier(const char *name, size_t name_len);
+
+ASTNode *ast_new_bin_exp(const char *op, ASTNode *left, ASTNode *right);
+ASTNode *ast_new_un_exp(const char *op, ASTNode *operand);
 
 
 //helpers

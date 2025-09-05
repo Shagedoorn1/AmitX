@@ -10,6 +10,7 @@
 #include "heap.h"
 #include "syscall.h"
 #include "fs.h"
+#include "mouse.h"
 #include "task.h"
 #include "commands.h"
 #include "app.h"
@@ -51,6 +52,7 @@ void kernel_setup() {
     fs_init();
     init_tasks();
     syscall_init();
+    init_mouse();
     setcolor(15, 0);
     clear();
 }
@@ -88,5 +90,7 @@ void kernel_main(void) {
     kernel_setup();
     draw_start();
     
-    while (1);
+    while (1) {
+        
+    }
 }

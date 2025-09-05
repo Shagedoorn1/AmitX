@@ -17,13 +17,12 @@ void isr_handler(int interrupt_number, uint32_t error_code) {
     if (interrupt_handlers[interrupt_number]) {
         interrupt_handlers[interrupt_number]();
     } else {
-        setcolor(4, 15);  // Red background, white text
         puts("[unhandled interrupt] ");
         puthex(interrupt_number);
         puts(" (err=");
         puthex(error_code);
-        puts(")\n");
-        setcolor(0, 15);
+        puts(")");
+        newline();
     }
 
     // Acknowledge PIC

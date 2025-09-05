@@ -32,8 +32,33 @@ typedef enum {
     TOKEN_OPERATOR_GT,    //>
     TOKEN_OPERATOR_GTE,   //>=
 
-    TOKEN_INC,             //++
-    TOKEN_DEC              //--
+    TOKEN_PLUS,           //+
+    TOKEN_MINUS,          //-
+    TOKEN_MULT,           //*
+    TOKEN_POW,            //**
+    TOKEN_DIV,            ///
+    TOKEN_MOD,            //%
+
+    TOKEN_BIT_AND,        //%
+    TOKEN_BIT_OR,         //|
+    TOKEN_BIT_XOR,        //^
+    TOKEN_BIT_NOR,        //~
+    TOKEN_BIT_NOT,
+
+    TOKEN_SHIFT_LEFT,     //<<
+    TOKEN_SHIFT_RIGHT,    //>>
+
+    TOKEN_AND_ASSIGN,      //&=
+    TOKEN_OR_ASSIGN,       //|=
+    TOKEN_XOR_ASSIGN,      //^=
+    TOKEN_SHL_ASSIGN,      //<<=
+    TOKEN_SHR_ASSIGN,      //>>=
+
+    TOKEN_LOGICAL_AND,     //&&
+    TOKEN_LOGICAL_OR,      //||
+
+    TOKEN_INC,            //++
+    TOKEN_DEC,             //--
 
 } TokenType;
 
