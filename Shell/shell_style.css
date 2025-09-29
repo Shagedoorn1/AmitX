@@ -1,0 +1,15 @@
+window, textview text, scrolledwindow, viewport {
+    background-color: #1e1e1e;
+    color: #ffffff;
+    font-family: monospace;
+    font-size: 14px;
+    border: none;
+}
+textview {
+    padding: 10px;
+    border: none;
+    background-color: #1e1e1e;
+}
+viewport {
+    background-color: #1e1e1e;
+}
