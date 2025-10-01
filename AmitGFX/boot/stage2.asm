@@ -15,6 +15,7 @@
 ; (Sub)Section titles        use 3 '-' characters before and after
 
 ; ------------------------------
+
 ; --- Code ---
 BITS     16
 ORG      0x8000
@@ -62,6 +63,35 @@ start:
     call print_char
    
 .after_memmap:
+    ; 2) Store results in structured table in memory (for kernel)
+    call print_newline
+    mov  si,  storing_msg
+    call print_string
+
+    mov  si,  mem_buffer
+    mov  di,  mem_table + 2
+    xor  cx,  cx
+.copy_entry:
+    push cx
+    mov  bx,  24
+.copy_loop:
+    mov  al,  [si]
+    mov  [di], al
+    inc  si
+    inc  di
+    dec  bx
+    jnz  .copy_loop
+    pop  cx
+
+    inc  cx
+    cmp  byte [si], 0
+    jne  .copy_entry
+
+    mov  [mem_table], cx
+
+    call print_newline
+    mov  si,  done_msg
+    call print_string
     ; --- print simple message ---
     call print_newline
     mov si, msg
@@ -127,12 +157,15 @@ print_string:
 ; ------------------------------
 ; Buffers
 align 16
-mem_buffer:        times 128 db 0      ; One E820 entry (24 bytes)
+mem_buffer:        times 512 db 0      ; One E820 entry (24 bytes)
+mem_table:         times 512 db 0      ; Stuctured copy for kernel
 
 ; ------------------------------
 ; Messages
 msg:               db "hello from stage 2!",0
 banner:            db "AmitGFX, by Amity",0
+storing_msg:       db "Storing 0xE820 table...",0
+done_msg: db "Copying done!",0
 
 
 ; ------------------------------

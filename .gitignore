@@ -1,1 +1,4 @@
 Secret/
+**/*.bin
+**/*.o
+**/isodir/

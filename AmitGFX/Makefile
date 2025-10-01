@@ -19,7 +19,7 @@ OBJ_DIR  = isodir/obj
 IMG_DIR  = isodir/img
 
 # Config
-STAGE2_SECTORS = 1
+STAGE2_SECTORS = 4
 KERNEL_SECTORS = 1
 
 # Sources

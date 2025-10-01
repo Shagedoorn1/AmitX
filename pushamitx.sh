@@ -45,7 +45,7 @@ else
 fi
 
 # 🧼 Clean, commit, and sync
-git add AmitX README.md pushamitx.sh
+git add .
 git commit -m "$COMMIT_MSG"
 
 echo "⬇️  Pulling latest changes with rebase..."
