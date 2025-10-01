@@ -1,4 +1,4 @@
-# 🚀 AmitGFX Bootloader Roadmap
+# AmitGFX Bootloader Roadmap
 
 ## Stage 1 (Bootsector, real mode)
 1) Boot strap
@@ -23,6 +23,7 @@
 # Stage 2 (extended loader, 16-bit real mode → 64-bit long mode)
 1) Initialize basics
     - Set up larger stack, real-mode stack.
+    - Store boot drive (again)
     - Print banner (cause why not?)
 2) Query BIOS
     - Get memory map (E820).
@@ -50,8 +51,8 @@
     - Jump to kernel's 64-bit entry point at 1MB
 
 ## if implemented ? [x] : []
-- 1 []
-- 2 []
+- 1 [x]
+- 2 [x]
 - 3 []
 - 4 []
 - 5 []

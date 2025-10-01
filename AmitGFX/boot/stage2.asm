@@ -23,6 +23,8 @@ ORG      0x8000
 start:
     cli                                ; Disable interrupts before stack setup
 
+    mov  [boot_drive], dl
+
     ; --- Step 1: Set up basics ---
     ; 1) Stack in high memory
     mov  ax,  0x9000                   ; Set stack segment to 0x9000
@@ -68,34 +70,67 @@ start:
     mov  si,  storing_msg
     call print_string
 
+    mov  ax,  cs
+    mov  ds,  ax
+    mov  es,  ax
+    cld
+
     mov  si,  mem_buffer
     mov  di,  mem_table + 2
     xor  cx,  cx
-.copy_entry:
-    push cx
-    mov  bx,  24
-.copy_loop:
-    mov  al,  [si]
-    mov  [di], al
-    inc  si
-    inc  di
-    dec  bx
-    jnz  .copy_loop
-    pop  cx
+.store_loop:
+    ; Copy Base (QWORD)
+    mov  ax,  [si]
+    stosw
+    mov  ax,  [si+2]
+    stosw
+    mov  ax,  [si+4]
+    stosw
+    mov  ax,  [si+6]
+    stosw
 
+    ; Copy Length (QWORD)
+    mov  ax,  [si+8]
+    stosw
+    mov  ax,  [si+10]
+    stosw
+    mov  ax,  [si+12]
+    stosw
+    mov  ax,  [si+14]
+    stosw
+
+    ; Copy Type (DWORD)
+    mov  ax,  [si+16]
+    stosw
+    mov  ax,  [si+18]
+    stosw
+
+    add  si,  24 ; Why did the BIOS throw a hissy fit the last time we did this? I haven't got a f*cking clue. It works now so that's great!
     inc  cx
-    cmp  byte [si], 0
-    jne  .copy_entry
+
+    cmp  ebx, 0
+    jne  .store_loop
 
     mov  [mem_table], cx
 
     call print_newline
     mov  si,  done_msg
     call print_string
+
+    mov  eax, mem_table
+    mov  [boot_info_mem], eax
+
+    ; Store entry count
+    mov  ax,  [mem_table]
+    mov  [boot_info_count], ax
     ; --- print simple message ---
     call print_newline
     mov si, msg
     call print_string
+
+hang:
+    hlt
+    jmp hang
 ; ------------------------------
 ; Helpers
 print_char:
@@ -160,12 +195,16 @@ align 16
 mem_buffer:        times 512 db 0      ; One E820 entry (24 bytes)
 mem_table:         times 512 db 0      ; Stuctured copy for kernel
 
+boot_info_mem:     dd 0                ; Physical address of mem_table (so we can access it later)
+boot_info_count:   dw 0                ; Number of table entries
+boot_drive:        db 0                ; Boot drive, from stage 1
+
 ; ------------------------------
 ; Messages
 msg:               db "hello from stage 2!",0
 banner:            db "AmitGFX, by Amity",0
 storing_msg:       db "Storing 0xE820 table...",0
-done_msg: db "Copying done!",0
+done_msg:          db "Copying done!",0
 
 
 ; ------------------------------
