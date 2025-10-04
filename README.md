@@ -28,6 +28,24 @@ Welcome to **AmitX**, the operating system you didn’t know you needed but secr
 
 ---
 
+# AmitGFX
+> Fine, I'll do it myself.
+> Born of broken dreams and failed experiments.
+
+AmitGFX is the rebellious younger sibling of AmitX. It started as a six month struggle with VBE graphics and a nasty fight with GRUB and their "helpfull" bootloading, until one day I filed the divorce papers and threw GRUB out completely. The GF in AmitGFX was meant to stand for graphics, but turned to GRUB Free.
+
+Where AmitX hoots, AmitGFX growls. It has a hand crafted bootloader that starts in 16-bit real mode and talks to the BIOS directly, querying for memory, enabling the A20 line and then load a 64-bit kernel into 1MB. No hand holding, no magic, just raw assembly, sleepless nights and caffiene.
+
+## Right now AmitGFX can
+- Boot without GRUB (good riddance)
+- Print strings, hex16s and map memory
+- Load the kernel directly into high memory
+
+It's not pretty, it's not polite. But it's fast, lightweight and mine, to the last byte. This is the bootloader that said: *if no one else will do it, then I will.*
+
+
+---
+
 ## How to Get Started
 
 Build and run your Owly programs inside AmitX with minimal pain:

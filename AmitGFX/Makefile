@@ -1,8 +1,6 @@
 # Tools
 ASM     = nasm
 QEMU    = qemu-system-x86_64
-
-# For later (C kernel)
 CC      = x86_64-elf-gcc
 LD      = x86_64-elf-ld
 
@@ -20,49 +18,55 @@ IMG_DIR  = isodir/img
 
 # Config
 STAGE2_SECTORS = 4
+MODE32_SECTORS = 1
+MODE64_SECTORS = 1
 KERNEL_SECTORS = 1
 
-# Sources
-BOOT_SRC   = $(BOOT_DIR)/boot.asm
-STAGE2_SRC = $(BOOT_DIR)/stage2.asm
-KERNEL_SRC = $(SRC_DIR)/kernel.c
+# Source files
+#Manually enter bootloader files, the order is important, using wildcard places stage2.asm last, which crashes the kernel at the first possible moment
+BOOT_FILES = boot.asm stage2.asm mode32.asm mode64.asm 
+ASM_SRC = $(addprefix $(BOOT_DIR)/, $(BOOT_FILES))
+C_SRC   = $(wildcard $(SRC_DIR)/*.c)
 
-BOOT_BIN   = $(BIN_DIR)/boot.bin
-STAGE2_BIN = $(BIN_DIR)/stage2.bin
-KERNEL_OBJ = $(OBJ_DIR)/kernel.o
-KERNEL_BIN = $(BIN_DIR)/kernel.bin
+# Bin/obj targets (automatically derived)
+ASM_BIN = $(patsubst $(BOOT_DIR)/%.asm,$(BIN_DIR)/%.bin,$(ASM_SRC))
+C_OBJ   = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SRC))
+C_BIN   = $(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.bin,$(C_SRC))
 
-IMG_FILE   = $(IMG_DIR)/os.img
+# Disk image
+IMG_FILE = $(IMG_DIR)/amitgfx.img
 
 # Default
 all: dirs $(IMG_FILE)
 
-# Ensure dirs exist
+# Ensure directories exist
 dirs:
 	mkdir -p $(BIN_DIR) $(OBJ_DIR) $(IMG_DIR)
 
-# Boot sector
-$(BOOT_BIN): $(BOOT_SRC) | dirs
-	$(ASM) $(ASM_FLAGS) -o $@ $< -DSTAGE2_SECTORS=$(STAGE2_SECTORS)
-
-# Stage 2 (needs KERNEL_SECTORS for DAP setup)
-$(STAGE2_BIN): $(STAGE2_SRC) $(KERNEL_BIN) | dirs
+# Pattern rule for ASM -> BIN
+$(BIN_DIR)/%.bin: $(BOOT_DIR)/%.asm | dirs
 	$(ASM) $(ASM_FLAGS) -o $@ $< \
 		-DSTAGE2_SECTORS=$(STAGE2_SECTORS) \
-		-DKERNEL_SECTORS=$(KERNEL_SECTORS)
+		-DKERNEL_SECTORS=$(KERNEL_SECTORS) \
+		-DMODE32_SECTORS=$(MODE32_SECTORS) \
+		-DMODE64_SECTORS=$(MODE64_SECTORS)
 
-# Kernel
-$(KERNEL_BIN): $(KERNEL_SRC) | dirs
-	$(CC) $(CFLAGS) -c $< -o $(KERNEL_OBJ)
-	$(LD) -m elf_x86_64 -Ttext 0x100000 --oformat binary -o $@ $(KERNEL_OBJ)
+# Pattern rule for C -> OBJ
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | dirs
+	$(CC) $(CFLAGS) -c $< -o $@
+
+# Pattern rule for OBJ -> BIN (kernel)
+$(BIN_DIR)/%.bin: $(OBJ_DIR)/%.o | dirs
+	$(LD) -m elf_x86_64 -Ttext 0x100000 --oformat binary -o $@ $<
 	# align to full sectors
 	size=$$(stat -c%s "$@"); \
 	size=$$(( (size + 511) / 512 * 512 )); \
 	truncate -s $$size "$@"
 
-# Build disk image (boot sector + stage2 + kernel)
-$(IMG_FILE): $(BOOT_BIN) $(STAGE2_BIN) $(KERNEL_BIN)
-	cat $(BOOT_BIN) $(STAGE2_BIN) $(KERNEL_BIN) > $@
+# Build disk image
+$(IMG_FILE): $(ASM_BIN) $(C_BIN)
+	cat $(ASM_BIN) $(C_BIN) > $@
+
 
 # Run in QEMU
 run: $(IMG_FILE)

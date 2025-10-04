@@ -15,7 +15,6 @@
 ; (Sub)Section titles        use 3 '-' characters before and after
 
 ; ------------------------------
-
 ; --- Code ---
 BITS     16
 ORG      0x8000
@@ -38,99 +37,120 @@ start:
     
     ; --- Step 2: Query BIOS ---
     ; 1) Get memory map (E820)
-    xor  ebx, ebx
-    mov  di,  mem_buffer
-    mov  ax,  cs
-    mov  es, ax
-.e820_loop:
-    mov  eax, 0xE820                   ; BIOS function: get system memory map
-    mov  edx, 0x534D4150               ; "SMAP" signature
-    mov  ecx, 24                       ; request 24-byte signature
-    int  0x15                          ; Call BIOS
-    jc   .e820_done
-    cmp  eax, 0x534D4150               ; Verify BIOS returned "SMAP"
-    jne  .e820_done                    ; Error
-
-    mov  al,  '#'                      ; Success, entry found
-    call print_char
-
-    ; Don't do `add di, 24` here, it will break everything. Why? Because the BIOS feels like it I guess
-    test ebx, ebx
-    jnz  .e820_loop
-    jmp  .after_memmap
-
-
-.e820_done:
-    mov  al,  '!'
-    call print_char
-   
-.after_memmap:
-    ; 2) Store results in structured table in memory (for kernel)
-    call print_newline
-    mov  si,  storing_msg
-    call print_string
-
-    mov  ax,  cs
-    mov  ds,  ax
-    mov  es,  ax
+    mov  ax, cs
+    mov  ds, ax          ; DS used for mem_table destination
+    mov  es, ax          ; ES will be used for BIOS buffer (we'll set ES:DI before each call)
     cld
 
-    mov  si,  mem_buffer
-    mov  di,  mem_table + 2
-    xor  cx,  cx
-.store_loop:
-    ; Copy Base (QWORD)
-    mov  ax,  [si]
-    stosw
-    mov  ax,  [si+2]
-    stosw
-    mov  ax,  [si+4]
-    stosw
-    mov  ax,  [si+6]
-    stosw
+    xor  ebx, ebx        ; continuation value for E820
+    xor  dx, dx          ; DX = entry count (word)
+    mov  bp, mem_table + 2    ; BP = destination pointer (offset in DS) -> start after count
 
-    ; Copy Length (QWORD)
-    mov  ax,  [si+8]
-    stosw
-    mov  ax,  [si+10]
-    stosw
-    mov  ax,  [si+12]
-    stosw
-    mov  ax,  [si+14]
-    stosw
+.e820_loop:
+    mov  di,  mem_buffer
+    mov  eax, 0xE820
+    mov  edx, 0x534D4150
+    mov  ecx, 24
+    int  0x15
+    jc   .e820_error
+    cmp  eax, 0x534D4150
+    jne  .e820_error
 
-    ; Copy Type (DWORD)
-    mov  ax,  [si+16]
-    stosw
-    mov  ax,  [si+18]
-    stosw
+    mov  al, '#'
+    call print_char
 
-    add  si,  24 ; Why did the BIOS throw a hissy fit the last time we did this? I haven't got a f*cking clue. It works now so that's great!
-    inc  cx
+    
+    mov  si,  mem_buffer       
+    mov  cx,  4                
+.copy_base:
+    mov  ax,  [es:si]
+    mov  [ds:bp], ax
+    add  si,  2
+    add  bp,  2
+    loop .copy_base
 
-    cmp  ebx, 0
-    jne  .store_loop
+    mov  cx,  4                
+.copy_len:
+    mov  ax,  [es:si]
+    mov  [ds:bp], ax
+    add  si,  2
+    add  bp,  2
+    loop .copy_len
 
-    mov  [mem_table], cx
+    mov  cx,  2              
+.copy_type:
+    mov  ax,  [es:si]
+    mov  [ds:bp], ax
+    add  si,  2
+    add  bp,  2
+    loop .copy_type
 
-    call print_newline
-    mov  si,  done_msg
-    call print_string
+    inc  dx
 
+    test ebx, ebx
+    jnz  .e820_loop          
+
+    mov  ax,  dx
+    mov  [mem_table], ax
+
+    jmp .after_memmap
+
+.e820_error:
+    mov  al, '!'
+    call print_char
+    mov  ax, dx
+    mov  [mem_table], ax
+
+.after_memmap:
     mov  eax, mem_table
     mov  [boot_info_mem], eax
-
-    ; Store entry count
-    mov  ax,  [mem_table]
+    mov  ax, [mem_table]
     mov  [boot_info_count], ax
+
+    ; call test_boot_info
+    ; this test will print a MASSIVE ammount of numbers, most of wich 0, there is some actual data in there but you'll need to be able to read yee-fast to make sense of it
+
+    ; --- Step 3: Load kernel ---
+    ; 1) Enable A20 line (for +1MB memory)
+    in   al,  0x92
+    or   al,  2
+    out  0x92, al
+    call print_newline
+    call test_a20
+    ; 2) Load raw kernel.bin from disk into 1MB (the return of LBA)
+    mov  si,  kernel_load_msg
+    call print_string
+    call print_newline
+
+    mov  dl,  [boot_drive]
+    mov  ah,  0x42
+    lea  si,  [kernel_dap]
+    int  0x13
+    jc   .kernel_read_fail
+
+    mov  si,  load_done_msg
+    call print_string
+    call print_newline
+    jmp  .after_kernel_load
+.kernel_read_fail:
+    mov  si,  disk_err_msg
+    call print_string
+    jmp hang
+.after_kernel_load:
+    ; 3) Future, replace with FS loader (ext2)
+    ; --- Step 4: Switch to protected mode (32-bit) ---
+    ; 1) Load and enable GDT (with proper 32-bit segments).
+    ; 2) Enable protected mode (CR0.PE=1).
+    ; 3) Far jump into 32-bit code.
     ; --- print simple message ---
     call print_newline
-    mov si, msg
+    mov  si,  msg
     call print_string
 
 hang:
     hlt
     jmp hang
+
 ; ------------------------------
 ; Helpers
 print_char:
@@ -188,7 +208,76 @@ print_string:
 
 ; ------------------------------
 ; Tests
+test_boot_info:
+    call print_newline
 
+    mov  si,  boot_drive_msg
+    call print_string
+    mov  al,  [boot_drive]
+    call print_hex16
+    call print_newline
+
+    mov  cx,  [boot_info_count]
+    mov  si,  mem_table + 2
+.print_entries:
+    mov  ax,  [si]
+    call print_hex16
+    mov  ax,  [si+16]
+    call print_hex16
+    call print_newline
+    add  si,  20
+    loop .print_entries
+.done:
+    ret
+
+test_a20:
+    cli                                ; disable interrupts
+
+    ; Save original bytes (optional, can skip if safe)
+    mov  ax,  0x0000
+    mov  es,  ax
+    mov  di,  0x0000
+    mov  al,  [di]
+    mov  [saved_low], al
+
+    ; Write test pattern
+    mov  al,  0xAA
+    mov  [di], al                      ; write to 0x000000
+
+    ; Write to 0x100000 (1 MB physical)
+    mov  ax,  0xFFFF
+    mov  es,  ax
+    mov  di,  0x0010                   ; 0xFFFF0 + 0x10 = 0x100000
+    mov  al,  0x55
+    mov  [di], al
+
+    ; Read back 0x100000
+    mov  ax,  0xFFFF
+    mov  es,  ax
+    mov  di,  0x0010
+    mov  al,  [di]
+    cmp  al,  0x55
+    je   .a20_on
+    ; else
+.a20_off:
+    mov  si, msg_a20_off
+    call print_string
+    call print_newline
+    jmp  .done
+
+.a20_on:
+    mov  si, msg_a20_on
+    call print_string
+    call print_newline
+
+.done:
+    ; Restore original 0x000000 byte (optional)
+    mov  ax,  0x0000
+    mov  es,  ax
+    mov  di,  0x0000
+    mov  al,  [saved_low]
+    mov  [di], al
+    ret
 ; ------------------------------
 ; Buffers
 align 16
@@ -199,12 +288,29 @@ boot_info_mem:     dd 0                ; Physical address of mem_table (so we ca
 boot_info_count:   dw 0                ; Number of table entries
 boot_drive:        db 0                ; Boot drive, from stage 1
 
+saved_low          db 0                ; for A20 test
+
+kernel_dap:
+    db 0x10                ; size of packet
+    db 0x00                ; reserved
+    dw KERNEL_SECTORS      ; number of sectors to read
+    dw 0x0000              ; buffer offset (little-endian: offset then seg)
+    dw 0x1000              ; buffer segment
+    dq 1 + STAGE2_SECTORS  ; starting LBA (sector 1)
+
 ; ------------------------------
 ; Messages
 msg:               db "hello from stage 2!",0
 banner:            db "AmitGFX, by Amity",0
 storing_msg:       db "Storing 0xE820 table...",0
 done_msg:          db "Copying done!",0
+boot_drive_msg:    db "Boot drive=0x",0
+msg_a20_on:        db "A20 ON",0
+msg_a20_off:       db "A20 OFF",0
+kernel_load_msg:   db "Loading kernel to 1MB...",0
+load_done_msg:     db "Kernel read OK",0
+disk_err_msg:      db "Kernel read failed",0
+
 
 
 ; ------------------------------
