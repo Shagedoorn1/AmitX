@@ -31,6 +31,7 @@ C_SRC   = $(wildcard $(SRC_DIR)/*.c)
 # Bin/obj targets (automatically derived)
 ASM_BIN = $(patsubst $(BOOT_DIR)/%.asm,$(BIN_DIR)/%.bin,$(ASM_SRC))
 C_OBJ   = $(patsubst $(SRC_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SRC))
+.SECONDARY: $(C_OBJ)
 C_BIN   = $(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%.bin,$(C_SRC))
 
 # Disk image
