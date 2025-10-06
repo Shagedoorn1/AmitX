@@ -31,20 +31,20 @@
     - Enable A20 line (for +1MB memory)
     - Load raw kernel.bin from disk into 1MB
     - Future: replace with FS loader (ext2)
-4) Hand off to protected-mode stage
+4) Hand off to protected-mode
     - Load small GDT for transition
+    - Set CR0.PE = 1 (duh)
     - Far jump into `mode32_entry` from `mode32.asm`
 
 ## if implemented ? [x] : []
 - 1 [x]
 - 2 [x]
 - 3 [x]
-- 4 []
+- 4 [x]
 
 # Mode32
 1) Initialize protected mode
     - Load 32-bit GDT (flat-memory-model)
-    - Set CR0.PE = 1 (duh)
     - Far jump to 32-bit code segment
 2) Setup runtime env
     - Load 32-bit data segment (DS, ES, SS, ..., \<X>S)

@@ -15,6 +15,10 @@
 ; (Sub)Section titles        use 3 '-' characters before and after
 
 ; ------------------------------
+; --- Macros ---
+%define SECTOR_SIZE 512
+%define MODE32_ADDR 0x8000 + (MODE32_SECTORS * SECTOR_SIZE)
+; ------------------------------
 ; --- Code ---
 BITS     16
 ORG      0x8000
@@ -118,34 +122,36 @@ start:
     call print_newline
     call test_a20
     ; 2) Load raw kernel.bin from disk into 1MB (the return of LBA)
-    mov  si,  kernel_load_msg
+    mov  si,  mode32_load_msg
     call print_string
     call print_newline
 
     mov  dl,  [boot_drive]
     mov  ah,  0x42
-    lea  si,  [kernel_dap]
+    lea  si,  [mode32_dap]
     int  0x13
-    jc   .kernel_read_fail
+    jc   .mode32_read_fail
 
     mov  si,  load_done_msg
     call print_string
     call print_newline
-    jmp  .after_kernel_load
-.kernel_read_fail:
+    jmp  .after_mode32_load
+.mode32_read_fail:
     mov  si,  disk_err_msg
     call print_string
     jmp hang
-.after_kernel_load:
-    ; 3) Future, replace with FS loader (ext2)
-    ; --- Step 4: Switch to protected mode (32-bit) ---
-    ; 1) Load and enable GDT (with proper 32-bit segments).
-    ; 2) Enable protected mode (CR0.PE=1).
-    ; 3) Far jump into 32-bit code.
+.after_mode32_load:
     ; --- print simple message ---
     call print_newline
     mov  si,  msg
     call print_string
+    mov  ax, word MODE32_ADDR
+    call print_hex32
+    
+    ; 3) Future, replace with FS loader (ext2)
+    ; --- Step 4: Hand off to protected-mode (32-bit) ---
+    ; 1) Far jump into `mode32_entry` from `mode32.asm`
+    jmp 0x0000:MODE32_ADDR
 
 hang:
     hlt
@@ -204,6 +210,34 @@ print_string:
     jmp  print_string
 
 .ps_done:
+    ret
+
+; usage: put 32-bit value in EAX, then call print_hex32
+print_hex32:
+    push ax
+    push bx
+    push cx
+    push dx
+    push si
+    push di
+
+    mov si, scratch32      ; scratch area (4 bytes) in data section
+    mov [si], eax          ; NASM will store EAX little-endian (low word @ si, high word @ si+2)
+
+    ; print high word first
+    mov ax, [si+2]
+    call print_hex16
+
+    ; then low word
+    mov ax, [si]
+    call print_hex16
+
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    pop ax
     ret
 
 ; ------------------------------
@@ -288,15 +322,18 @@ boot_info_mem:     dd 0                ; Physical address of mem_table (so we ca
 boot_info_count:   dw 0                ; Number of table entries
 boot_drive:        db 0                ; Boot drive, from stage 1
 
-saved_low          db 0                ; for A20 test
+saved_low:         db 0                ; for A20 test
+align 2
+scratch32:         times 4 db 0
 
-kernel_dap:
-    db 0x10                ; size of packet
-    db 0x00                ; reserved
-    dw KERNEL_SECTORS      ; number of sectors to read
-    dw 0x0000              ; buffer offset (little-endian: offset then seg)
-    dw 0x1000              ; buffer segment
-    dq 1 + STAGE2_SECTORS  ; starting LBA (sector 1)
+
+mode32_dap:
+    db 0x10                            ; size of packet
+    db 0x00                            ; reserved
+    dw MODE32_SECTORS                  ; number of sectors to read
+    dw MODE32_ADDR                          ; buffer offset (little-endian: offset then seg)
+    dw 0x0000                          ; buffer segment
+    dq 1 + STAGE2_SECTORS              ; starting LBA (sector 1)
 
 ; ------------------------------
 ; Messages
@@ -307,9 +344,11 @@ done_msg:          db "Copying done!",0
 boot_drive_msg:    db "Boot drive=0x",0
 msg_a20_on:        db "A20 ON",0
 msg_a20_off:       db "A20 OFF",0
-kernel_load_msg:   db "Loading kernel to 1MB...",0
-load_done_msg:     db "Kernel read OK",0
-disk_err_msg:      db "Kernel read failed",0
+mode32_load_msg:   db "Loading mode32...",0
+load_done_msg:     db "mode32 read OK",0
+disk_err_msg:      db "mode32 read failed",0
+msg_pm_jump:       db "Jumping to mode32...",0
+
 
 
 

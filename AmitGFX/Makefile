@@ -24,8 +24,8 @@ KERNEL_SECTORS = 1
 
 # Source files
 #Manually enter bootloader files, the order is important, using wildcard places stage2.asm last, which crashes the kernel at the first possible moment
-BOOT_FILES = boot.asm stage2.asm mode32.asm mode64.asm 
-ASM_SRC = $(addprefix $(BOOT_DIR)/, $(BOOT_FILES))
+#You know, fuck that, renaming files works too, especially great if for consistency
+ASM_SRC = $(wildcard $(BOOT_DIR)/*.asm)
 C_SRC   = $(wildcard $(SRC_DIR)/*.c)
 
 # Bin/obj targets (automatically derived)
@@ -46,11 +46,7 @@ dirs:
 
 # Pattern rule for ASM -> BIN
 $(BIN_DIR)/%.bin: $(BOOT_DIR)/%.asm | dirs
-	$(ASM) $(ASM_FLAGS) -o $@ $< \
-		-DSTAGE2_SECTORS=$(STAGE2_SECTORS) \
-		-DKERNEL_SECTORS=$(KERNEL_SECTORS) \
-		-DMODE32_SECTORS=$(MODE32_SECTORS) \
-		-DMODE64_SECTORS=$(MODE64_SECTORS)
+	$(ASM) $(ASM_FLAGS) -o $@ $< -DSTAGE2_SECTORS=$(STAGE2_SECTORS) -DKERNEL_SECTORS=$(KERNEL_SECTORS) -DMODE32_SECTORS=$(MODE32_SECTORS) -DMODE64_SECTORS=$(MODE64_SECTORS)
 
 # Pattern rule for C -> OBJ
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | dirs
@@ -59,7 +55,6 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c | dirs
 # Pattern rule for OBJ -> BIN (kernel)
 $(BIN_DIR)/%.bin: $(OBJ_DIR)/%.o | dirs
 	$(LD) -m elf_x86_64 -Ttext 0x100000 --oformat binary -o $@ $<
-	# align to full sectors
 	size=$$(stat -c%s "$@"); \
 	size=$$(( (size + 511) / 512 * 512 )); \
 	truncate -s $$size "$@"

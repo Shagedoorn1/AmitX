@@ -1,4 +1,4 @@
-; mode32.asm - Stage 2 bootloader for AmitGFX, protected mode
+; mode62.asm - Stage 2 bootloader for AmitGFX, long mode
 ; Author: Amity
 
 ; ------------------------------
@@ -15,7 +15,13 @@
 ; (Sub)Section titles        use 3 '-' characters before and after
 
 ; ------------------------------
+; --- Macros ---
+%define SECTOR_SIZE 512
+; ------------------------------
 ; --- Code ---
+ORG 0x8000 + SECTOR_SIZE * (STAGE2_SECTORS + MODE32_SECTORS)
+BITS 32
+
 mode64_entry:
 hang:
     hlt
@@ -86,5 +92,5 @@ print_string:
 ; Pad to full sectors (if times value is negative, update line 24 in the Makefile to the next power of two)
 ; In case this line ever gets moved:
 ; # Config
-; MODE64_SECTORS = 4
+; MODE64_SECTORS = 1
 times (MODE64_SECTORS*512)-($-$$) db 0
