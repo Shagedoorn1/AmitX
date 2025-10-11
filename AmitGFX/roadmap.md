@@ -19,7 +19,7 @@
 - 3 [x]
 - 4 [x]
 
-# Stage 2 (extended loader, 16-bit real mode → 64-bit long mode)
+# Mode16 (extended loader, 16-bit real mode → 64-bit long mode)
 1) Initialize basics
     - Set up larger stack, real-mode stack.
     - Store boot drive (again)
@@ -27,13 +27,11 @@
 2) Query BIOS
     - Get memory map (E820).
     - Store results in structured table in memory (for kernel)
-3) Load kernel
+3) Load mode32
     - Enable A20 line (for +1MB memory)
-    - Load raw kernel.bin from disk into 1MB
-    - Future: replace with FS loader (ext2)
+    - Load raw mode32.bin from disk next to mode16
+    - Future: replace with FS loader (ext2) (IDK where to put this now, maybe mode 64)
 4) Hand off to protected-mode
-    - Load small GDT for transition
-    - Set CR0.PE = 1 (duh)
     - Far jump into `mode32_entry` from `mode32.asm`
 
 ## if implemented ? [x] : []
@@ -45,6 +43,7 @@
 # Mode32
 1) Initialize protected mode
     - Load 32-bit GDT (flat-memory-model)
+    - Set CR0.PE = 1 (duh)
     - Far jump to 32-bit code segment
 2) Setup runtime env
     - Load 32-bit data segment (DS, ES, SS, ..., \<X>S)
@@ -57,8 +56,8 @@
     - Set EFER.LME = 1 (Long Mode Enable)
     - Far jump into `mode64_entry` from `mode64.asm`
 ## if implemented ? [x] : []
-- 1 []
-- 2 []
+- 1 [x]
+- 2 [x]
 - 3 []
 # Mode64
 1) Enter long mode
