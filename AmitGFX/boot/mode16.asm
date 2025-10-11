@@ -9,7 +9,7 @@
 ; Second operand             begins at col 15 (if possible)
 ; 
 ; Header comments            begin at col 5
-; In-line comments           begin at col 40
+; In-line comments           begin at col 40 
 ; Labels                     begin at col 1, end with ':'
 ; Section dividers           use 30 '-' characters
 ; (Sub)Section titles        use 3 '-' characters before and after
